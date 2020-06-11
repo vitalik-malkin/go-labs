@@ -83,21 +83,21 @@ localityName_default = Moscow
 
 [ root_ca_extensions ]
 basicConstraints = CA:true
-keyUsage = keyCertSign, cRLSign
+keyUsage = critical,keyCertSign, cRLSign
 subjectKeyIdentifier=hash
 
 [ client_extensions ]
 basicConstraints=CA:false
-keyUsage=digitalSignature,keyEncipherment,dataEncipherment
-extendedKeyUsage=clientAuth
+keyUsage=nonRepudiation,digitalSignature,keyEncipherment,dataEncipherment,keyAgreement
+extendedKeyUsage=critical,clientAuth
 subjectKeyIdentifier=hash
 authorityKeyIdentifier=keyid,issuer
 
 [ server_extensions ]
 basicConstraints=CA:false
 subjectAltName=email:copy,DNS:localhost,IP:127.0.0.1
-keyUsage=keyEncipherment
-extendedKeyUsage=serverAuth
+keyUsage=nonRepudiation,digitalSignature,keyEncipherment,dataEncipherment,keyAgreement
+extendedKeyUsage=critical,serverAuth
 subjectKeyIdentifier=hash
 authorityKeyIdentifier=keyid,issuer
 
