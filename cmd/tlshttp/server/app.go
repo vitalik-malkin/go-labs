@@ -2,14 +2,21 @@ package main
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
+	"regexp"
 	"time"
 
 	"github.com/valyala/fasthttp"
+)
+
+var (
+	clientValidCN = regexp.MustCompile(`^(dev[0-9]{1,3})$`)
 )
 
 func main() {
@@ -52,10 +59,56 @@ func tlsServerConfig() *tls.Config {
 			tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
 			tls.TLS_RSA_WITH_AES_256_CBC_SHA,
 		},
-		Certificates: []tls.Certificate{tlsCert},
-		ClientAuth:   tls.NoClientCert,
+		Certificates:          []tls.Certificate{tlsCert},
+		ClientAuth:            tls.RequireAndVerifyClientCert,
+		VerifyPeerCertificate: verifyClientCert,
 	}
 	return cfg
+}
+
+func verifyClientCert(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+	log.Print("Client cert verification routine called...")
+	if verifiedChains == nil {
+		return errors.New("client certificate not provided")
+	}
+	log.Printf("client cert verification: verified certs len %d", len(verifiedChains))
+	var authorizedCertFound = false
+	for i := 0; i < len(verifiedChains); i++ {
+		chain := verifiedChains[i]
+		for y := 0; y < len(chain); y++ {
+			cert := chain[y]
+			if !authorizedCertFound && clientValidCN.MatchString(cert.Subject.CommonName) {
+				authorizedCertFound = true
+				log.Printf("client cert chain verification: AUTHORIZED cert (%d, %d) — %s, %d, %s", i, y, cert.Subject, cert.SerialNumber, cert.Subject.CommonName)
+			} else {
+				log.Printf("client cert chain verification: cert (%d, %d) — %s, %d, %s", i, y, cert.Subject, cert.SerialNumber, cert.Subject.CommonName)
+			}
+		}
+	}
+	if !authorizedCertFound {
+		return errors.New("no any certificate presented by the client can be authorized using the defined rule(s)")
+	}
+
+	// if rawCerts == nil {
+	// 	log.Print("Client cert verification: no certs")
+	// } else {
+	// 	log.Printf("Client cert verification: certs len %d", len(rawCerts))
+	// 	for i := 0; i < len(rawCerts); i++ {
+	// 		cert, err := x509.ParseCertificate(rawCerts[i])
+	// 		if err == nil {
+	// 			log.Printf("Client cert verification: cert (%d) — %s, %d, %s", i, cert.Subject, cert.SerialNumber, cert.Subject.CommonName)
+	// 		} else {
+	// 			log.Printf("Client cert verification: error occurred while parsing cert: %v", err)
+	// 		}
+	// 	}
+	// }
+
+	return nil
+}
+
+func verifyServerCert(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+	log.Print("Server cert verification routine called...")
+	return nil
 }
 
 func tlsClientConfig() *tls.Config {
@@ -75,7 +128,8 @@ func tlsClientConfig() *tls.Config {
 		MinVersion:               tls.VersionTLS13,
 		PreferServerCipherSuites: true,
 		Certificates:             []tls.Certificate{tlsCert},
-		InsecureSkipVerify:       true,
+		InsecureSkipVerify:       false,
+		VerifyPeerCertificate:    verifyServerCert,
 	}
 	return cfg
 }
@@ -98,7 +152,8 @@ func runClient() {
 	req.SetRequestURI("https://localhost:48525/hello")
 	_ = req.URI()
 	for {
-		time.Sleep(10 * time.Second)
+		time.Sleep(3 * time.Second)
+		log.Printf("\n\n=========\n")
 		log.Println("Doing client request...")
 		err := httpCli.Do(req, res)
 		if err == nil {
