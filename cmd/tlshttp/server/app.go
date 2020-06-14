@@ -150,7 +150,7 @@ func runClient() {
 	// reqURI.Parse(nil, []byte("https://localhost:48525/hello"))
 	// req.SetRequestURI(reqURI.String())
 	req.SetRequestURI("https://localhost:48525/hello")
-	_ = req.URI()
+	//_ = req.URI()
 	for {
 		time.Sleep(3 * time.Second)
 		log.Printf("\n\n=========\n")
