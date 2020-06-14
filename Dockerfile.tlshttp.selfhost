@@ -1,0 +1,35 @@
+# build binary
+FROM golang:1.14-alpine AS build
+
+ARG GOOS
+ENV CGO_ENABLED=0 \
+    GOOS=$GOOS \
+    GOARCH=amd64 \
+    CGO_CPPFLAGS="-I/usr/include" \
+    UID=0 GID=0 \
+    CGO_CFLAGS="-I/usr/include" \
+    CGO_LDFLAGS="-L/usr/lib -lpthread -lrt -lstdc++ -lm -lc -lgcc -lz " \
+    PKG_CONFIG_PATH="/usr/lib/pkgconfig"
+
+RUN apk add --no-cache git make
+
+ARG APP_PKG_NAME=tlshttp.selfhost
+WORKDIR /go/src/$APP_PKG_NAMEcls
+COPY ./cmd/tlshttp/selfhost ./cmd/tlshttp/selfhost
+COPY ./tools /tools
+COPY ./vendor ./vendor
+
+RUN go build -v \
+    -o /out/service \
+    ./cmd/tlshttp/selfhost
+
+# copy to alpine image
+FROM alpine:3.8
+RUN apk add --no-cache ca-certificates
+COPY --from=build /tools/cert/ca/cert.cer /usr/local/share/ca-certificates/dev-ca.crt
+COPY --from=build /tools/cert/server-localhost01/server-localhost01-cert.cer /usr/local/share/ca-certificates/dev-server-localhost01.crt
+RUN update-ca-certificates
+WORKDIR /app/tlshttp/selfhost
+COPY --from=build /out/service /app/tlshttp/selfhost/service
+COPY --from=build /tools /tools
+CMD ["/app/tlshttp/selfhost/service"]

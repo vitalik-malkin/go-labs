@@ -1,0 +1,14 @@
+# github.com/andybalholm/brotli v1.0.0
+github.com/andybalholm/brotli
+# github.com/klauspost/compress v1.10.4
+github.com/klauspost/compress/flate
+github.com/klauspost/compress/gzip
+github.com/klauspost/compress/zlib
+# github.com/valyala/bytebufferpool v1.0.0
+github.com/valyala/bytebufferpool
+# github.com/valyala/fasthttp v1.14.0 => git.wildberries.ru/mironov.vitaliy3/fasthttp v1.14.1
+## explicit
+github.com/valyala/fasthttp
+github.com/valyala/fasthttp/fasthttputil
+github.com/valyala/fasthttp/stackless
+# github.com/valyala/fasthttp => git.wildberries.ru/mironov.vitaliy3/fasthttp v1.14.1

@@ -10,6 +10,9 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"time"
+
+	"github.com/valyala/fasthttp"
 )
 
 var (
@@ -24,6 +27,7 @@ func main() {
 	log.Println("Listening...")
 	tlsLn, _ := tls.Listen("tcp", ":48525", tlsConfig)
 	defer tlsLn.Close()
+	go runClient()
 	log.Fatal(http.Serve(tlsLn, mux))
 }
 
@@ -100,4 +104,65 @@ func verifyClientCert(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) e
 	// }
 
 	return nil
+}
+
+func verifyServerCert(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+	log.Print("Server cert verification routine called...")
+	return nil
+}
+
+func tlsClientConfig() *tls.Config {
+	pubCert, err := ioutil.ReadFile("../../../tools/cert/client-dev00/client-dev00-cert.cer")
+	if err != nil {
+		log.Fatal(err)
+	}
+	pubCertKey, err := ioutil.ReadFile("../../../tools/cert/client-dev00/client-dev00-key.pem")
+	if err != nil {
+		log.Fatal(err)
+	}
+	tlsCert, err := tls.X509KeyPair(pubCert, pubCertKey)
+	if err != nil {
+		log.Fatal(err)
+	}
+	cfg := &tls.Config{
+		MinVersion:               tls.VersionTLS13,
+		PreferServerCipherSuites: true,
+		Certificates:             []tls.Certificate{tlsCert},
+		InsecureSkipVerify:       false,
+		VerifyPeerCertificate:    verifyServerCert,
+	}
+	return cfg
+}
+
+func runClient() {
+	tlsConfig := tlsClientConfig()
+	httpCli := &fasthttp.HostClient{
+		Addr:      "localhost:48525",
+		IsTLS:     true,
+		TLSConfig: tlsConfig}
+	req, res := fasthttp.AcquireRequest(), fasthttp.AcquireResponse()
+	defer func() {
+		fasthttp.ReleaseRequest(req)
+		fasthttp.ReleaseResponse(res)
+	}()
+	req.Header.SetMethod("GET")
+	// var reqURI fasthttp.URI
+	// reqURI.Parse(nil, []byte("https://localhost:48525/hello"))
+	// req.SetRequestURI(reqURI.String())
+	req.SetRequestURI("https://localhost:48525/hello")
+	//_ = req.URI()
+	for {
+		time.Sleep(3 * time.Second)
+		log.Printf("\n\n=========\n")
+		log.Println("Doing client request...")
+		err := httpCli.Do(req, res)
+		if err == nil {
+			resData := &struct{ Message string }{}
+			json.Unmarshal(res.Body(), resData)
+			log.Printf("Client request success: %v\n", resData)
+
+		} else {
+			log.Printf("Client request fail: %v\n", err)
+		}
+	}
 }
