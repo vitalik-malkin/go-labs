@@ -1,0 +1,5 @@
+V	230621202203Z		BBA70DE0AB001447	unknown	/CN=*.deploy-service.svc.k8s.test/ST=Moscow/C=RU/emailAddress=nop@wildberries.ru/O=WILDBERRIES/OU=IT/Infrastructure
+V	230621202728Z		BBA70DE0AB001448	unknown	/CN=*.deploy-service.svc.k8s.test/ST=Moscow/C=RU/emailAddress=nop@wildberries.ru/O=WILDBERRIES/OU=IT/Infrastructure
+V	230621202930Z		BBA70DE0AB001449	unknown	/CN=deploy-service-component/ST=Moscow/C=RU/emailAddress=nop@wildberries.ru/O=WILDBERRIES/OU=IT/Infrastructure
+V	230623120830Z		BBA70DE0AB00144A	unknown	/CN=*.svc.k8s.test/ST=Moscow/C=RU/emailAddress=nop@wildberries.ru/O=WILDBERRIES/OU=IT/Infrastructure
+V	230623162039Z		BBA70DE0AB00144B	unknown	/CN=localhost/ST=Moscow/C=RU/emailAddress=nop@wildberries.ru/O=WILDBERRIES/OU=IT/Infrastructure

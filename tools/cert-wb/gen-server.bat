@@ -3,10 +3,10 @@ cls
 echo ==============================================================
 echo Generate server X.509 certificate
 ::
-set subject-display-name=localhost02
+set subject-display-name=all-services
 ::
 set cert-directory=server-%subject-display-name%
-set cert-file-base-name=server-%subject-display-name%
+set cert-file-base-name=%subject-display-name%
 ::
 echo ====================
 echo subject-display-name: %subject-display-name%

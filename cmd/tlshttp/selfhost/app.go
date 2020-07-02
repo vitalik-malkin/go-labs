@@ -8,11 +8,13 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"regexp"
 	"time"
 
 	"github.com/valyala/fasthttp"
+	_ "github.com/valyala/fasthttp/fasthttpadaptor"
 )
 
 var (
@@ -38,11 +40,11 @@ func helloHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 func tlsServerConfig() *tls.Config {
-	pubCert, err := ioutil.ReadFile("../../../tools/cert/server-localhost01/server-localhost01-cert.cer")
+	pubCert, err := ioutil.ReadFile("../../../tools/cert/server-localhost02/server-localhost02-cert.cer")
 	if err != nil {
 		log.Fatal(err)
 	}
-	pubCertKey, err := ioutil.ReadFile("../../../tools/cert/server-localhost01/server-localhost01-key.pem")
+	pubCertKey, err := ioutil.ReadFile("../../../tools/cert/server-localhost02/server-localhost02-key.pem")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -53,15 +55,9 @@ func tlsServerConfig() *tls.Config {
 	cfg := &tls.Config{
 		MinVersion:               tls.VersionTLS13,
 		PreferServerCipherSuites: true,
-		CipherSuites: []uint16{
-			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-			tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
-			tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
-			tls.TLS_RSA_WITH_AES_256_CBC_SHA,
-		},
-		Certificates:          []tls.Certificate{tlsCert},
-		ClientAuth:            tls.RequireAndVerifyClientCert,
-		VerifyPeerCertificate: verifyClientCert,
+		Certificates:             []tls.Certificate{tlsCert},
+		ClientAuth:               tls.RequireAndVerifyClientCert,
+		VerifyPeerCertificate:    verifyClientCert,
 	}
 	return cfg
 }
@@ -79,7 +75,7 @@ func verifyClientCert(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) e
 			cert := chain[y]
 			if !authorizedCertFound && clientValidCN.MatchString(cert.Subject.CommonName) {
 				authorizedCertFound = true
-				log.Printf("client cert chain verification: AUTHORIZED cert (%d, %d) — %s, %d, %s", i, y, cert.Subject, cert.SerialNumber, cert.Subject.CommonName)
+				log.Printf("client cert chain verification: AUTHORIZED cert (%d, %d) — %s, %d, %s, %v", i, y, cert.Subject, cert.SerialNumber, cert.Subject.CommonName, cert.DNSNames)
 			} else {
 				log.Printf("client cert chain verification: cert (%d, %d) — %s, %d, %s", i, y, cert.Subject, cert.SerialNumber, cert.Subject.CommonName)
 			}
@@ -107,7 +103,15 @@ func verifyClientCert(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) e
 }
 
 func verifyServerCert(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
-	log.Print("Server cert verification routine called...")
+	log.Print("server cert verification routine called...")
+	for i := 0; i < len(verifiedChains); i++ {
+		chain := verifiedChains[i]
+		for y := 0; y < len(chain); y++ {
+			cert := chain[y]
+			log.Printf("server cert chain verification: AUTHORIZED cert (%d, %d) — %s, %d, %s, %v", i, y, cert.Subject, cert.SerialNumber, cert.Subject.CommonName, cert.DNSNames)
+		}
+	}
+
 	return nil
 }
 
@@ -149,7 +153,7 @@ func runClient() {
 	// var reqURI fasthttp.URI
 	// reqURI.Parse(nil, []byte("https://localhost:48525/hello"))
 	// req.SetRequestURI(reqURI.String())
-	req.SetRequestURI("https://localhost:48525/hello")
+	req.SetRequestURI("https://a.phoenix.arizona.space:48525/hello")
 	//_ = req.URI()
 	for {
 		time.Sleep(3 * time.Second)

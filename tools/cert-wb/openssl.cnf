@@ -73,11 +73,11 @@ stateOrProvinceName_default = Moscow
 countryName = country-name
 countryName_default = RU
 emailAddress = email-address
-emailAddress_default = me@vitalik-mironov.space
+emailAddress_default = nop@wildberries.ru
 organizationName = organization-name
-organizationName_default = vitalik-mironov.space
+organizationName_default = WILDBERRIES
 organizationalUnitName = organizational-unit
-organizationalUnitName_default = IT
+organizationalUnitName_default = IT/Infrastructure
 localityName = locality-name
 localityName_default = Moscow
 
@@ -95,7 +95,7 @@ authorityKeyIdentifier=keyid,issuer
 
 [ server_extensions ]
 basicConstraints=CA:false
-subjectAltName=email:copy,IP:127.0.0.1,DNS:localhost,DNS:*.arizona.space,DNS:*.phoenix.arizona.space
+subjectAltName=email:copy,IP:127.0.0.1,DNS:localhost,DNS:*.svc.k8s.test,DNS:*.deploy-service.svc.k8s.test,DNS:*.deploy-service-generator.svc.k8s.test,DNS:*.deploy-service-auth.svc.k8s.test,DNS:*.deploy-service-id-284.svc.k8s.test,DNS:*.deploy-service-generator-id-284.svc.k8s.test,DNS:*.deploy-service-auth-id-284.svc.k8s.test
 keyUsage=nonRepudiation,digitalSignature,keyEncipherment,dataEncipherment,keyAgreement
 extendedKeyUsage=critical,serverAuth
 subjectKeyIdentifier=hash
