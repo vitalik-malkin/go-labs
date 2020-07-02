@@ -1,4 +1,4 @@
-module github.com/vitalik-mironov/go-grpc-api
+module github.com/vitalik-mironov/go-labs/go-go-hello
 
 go 1.14
 
