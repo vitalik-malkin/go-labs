@@ -1,15 +1,26 @@
 package main
 
 import (
-	_ "github.com/vitalik-mironov/go-labs/grpc/grpc-gateway/pkg/echo_api"
+	"context"
+
+	_ "github.com/grpc-ecosystem/grpc-gateway/runtime"
+	"google.golang.org/grpc"
+
+	pb "github.com/vitalik-mironov/go-labs/grpc/grpc-gateway/pkg/echo_api"
 )
 
 type echoService struct{}
 
-func (s *echoService) EchoV1() {
+var (
+	grpcEndpoint = "localhost:8081"
+)
 
+func (s echoService) EchoV1(ctx context.Context, req *pb.EchoV1Request) (resp *pb.EchoV1Response, err error) {
+	return &pb.EchoV1Response{}, nil
 }
 
 func main() {
+	server := grpc.NewServer()
+	pb.RegisterEchoAPIServer(server, *new(echoService))
 
 }
