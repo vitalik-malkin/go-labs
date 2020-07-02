@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package echo_api;
+
+option go_package = "github.com/vitalik-mironov/go-labs/grpc/grpc-gateway;echo_api";
+
+service EchoAPI {
+  
+  rpc EchoV1(EchoV1Request) returns (EchoV1Response) {}
+  
+}
+
+// Параметры эхо-запроса.
+//
+message EchoV1Request {
+  
+  // Любой текст, который будет возвращен в ответе.
+  // Длина текста ограничивается 1024 символами.
+  //
+  string text = 1;
+  
+}
+
+// Параметры ответа эхо-запроса.
+//
+message EchoV1Response {
+  
+  // Текст, переданный в эхо-запросе.
+  //
+  string text = 1;
+  
+}
