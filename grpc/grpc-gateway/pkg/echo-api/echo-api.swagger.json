@@ -10,8 +10,51 @@
   "produces": [
     "application/json"
   ],
-  "paths": {},
+  "paths": {
+    "/v1/echo": {
+      "post": {
+        "operationId": "EchoAPI_EchoV1",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/echo_apiEchoV1Response"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/echo_apiEchoV1Request"
+            }
+          }
+        ],
+        "tags": [
+          "EchoAPI"
+        ]
+      }
+    }
+  },
   "definitions": {
+    "echo_apiEchoV1Request": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string",
+          "description": "Любой текст, который будет возвращен в ответе.\nДлина текста ограничивается 1024 символами."
+        }
+      },
+      "description": "Параметры эхо-запроса."
+    },
     "echo_apiEchoV1Response": {
       "type": "object",
       "properties": {
