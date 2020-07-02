@@ -2,10 +2,10 @@
 
 .PHONY: gen
 gen:
-	cd pkg/echo-api \
+	cd pkg/echo_api \
 	&& protoc \
 		-I../../api \
-		--go_out=plugins=grpc:. \
+		--go_out=plugins=grpc,paths=source_relative:. \
 		../../api/echo-api.proto \
 	&& protoc \
 		-I../../api \
