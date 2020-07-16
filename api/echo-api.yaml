@@ -1,0 +1,7 @@
+ type: google.api.Service
+ config_version: 3
+
+ http:
+   rules:
+   - selector: echo_api.EchoAPI.EchoV1
+     get: /v1/echo/{text}
