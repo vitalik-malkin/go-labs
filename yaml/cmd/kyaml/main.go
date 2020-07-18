@@ -8,8 +8,7 @@ import (
 	"os"
 
 	"github.com/stelligent/config-lint/assertion"
-	"sigs.k8s.io/kustomize/kyaml/kio"
-	"sigs.k8s.io/kustomize/kyaml/yaml"
+	kio "sigs.k8s.io/kustomize/kyaml/kio"
 	kyaml "sigs.k8s.io/kustomize/kyaml/yaml"
 )
 
@@ -68,59 +67,20 @@ a: n
 )
 
 func main() {
-
-	// resTextSet := strings.Split(kyamltext, "\n---\n")
-	// for _, resText := range resTextSet {
-	// 	node := &y.Node{}
-	// 	y.Unmarshal([]byte(resText), node)
-
-	// 	switch node.Kind {
-	// 	case y.DocumentNode:
-	// 		fmt.Printf("document, %v\n", node.Content[0].Tag)
-	// 	default:
-	// 		fmt.Printf("unknown\n")
-	// 	}
-	// }
-
-	resReader := &kio.ByteReader{
-		Reader:                bytes.NewBufferString(kyamltext),
-		OmitReaderAnnotations: true,
-	}
-	resNodes, err := resReader.Read()
+	res, err := loadLinterResource(kyamltext)
 	if err != nil {
 		log.Fatal(err)
 	}
-	var _ []*yaml.RNode = resNodes
-	for i, resNode := range resNodes {
-		resYNode := resNode.YNode()
-		lineNum := resNode.YNode().Line
-		resMeta, err := resNode.GetMeta()
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		fmt.Printf("%d, %d: name=%s; ns=%s; kind=%s\n", i, lineNum, resMeta.Name, resMeta.Namespace, resMeta.Kind)
+	for _, v := range res {
+		fmt.Printf("ID: %s (%s)\n", v.ID, v.Type)
 	}
-
-	// var _ []string = values
-
-	// err := kio.Pipeline{
-	// 	Inputs: []kio.Reader{&kio.ByteReader{Reader: bytes.NewBufferString(kyamltext)}},
-	// }.Execute()
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-
-	// h := make([]interface{}, 0, 16)
-	// err := y.NewDecoder(bytes.NewReader([]byte(kyamltext))).Decode(h)
-	// if err != nil {
-	// 	fmt.Printf("error: %v'n", err)
-	// }
 
 	sc := bufio.NewScanner(os.Stdin)
 	sc.Scan()
 	fmt.Printf("text: %s", sc.Text())
 }
+
+type locRes assertion.Resource
 
 func loadLinterResource(manifest string) (resources []assertion.Resource, err error) {
 	resReader := &kio.ByteReader{
@@ -131,10 +91,9 @@ func loadLinterResource(manifest string) (resources []assertion.Resource, err er
 	if err != nil {
 		log.Fatal(err)
 	}
-	var _ []*yaml.RNode = resNodes
-	for i, resNode := range resNodes {
+	var _ []*kyaml.RNode = resNodes
+	for _, resNode := range resNodes {
 		resYNode := resNode.YNode()
-		lineNum := resNode.YNode().Line
 		resMeta, err := resNode.GetMeta()
 		if err != nil && err != kyaml.ErrMissingMetadata {
 			return nil, err
@@ -142,17 +101,30 @@ func loadLinterResource(manifest string) (resources []assertion.Resource, err er
 		var lntResID, lntResType string
 		if err == kyaml.ErrMissingMetadata {
 			lntResID, lntResType = "<n/a>", "<n/a>"
+			err = nil
 		} else {
-			lntResID = fmt.Sprintf("%s.%s", resMeta.Namespace, resMeta.Name)
+			lntResID, lntResType = fmt.Sprintf("%s/%s", resMeta.Namespace, resMeta.Name), resMeta.Kind
 		}
-
+		lntResProps := map[string]interface{}{}
+		err = resYNode.Decode(lntResProps)
+		if err != nil {
+			return nil, err
+		}
 		lntRes := assertion.Resource{
 			ID:         lntResID,
 			Type:       lntResType,
-			LineNumber: lineNum,
+			LineNumber: resYNode.Line,
+			Properties: lntResProps,
 		}
-
-		fmt.Printf("%d, %d: name=%s; ns=%s; kind=%s\n", i, lineNum, resMeta.Name, resMeta.Namespace, resMeta.Kind)
+		resources = append(resources, lntRes)
 	}
+	return
+}
 
+func (l *locRes) m1() string {
+	return ""
+}
+
+func (l locRes) m1() string {
+	return ""
 }
