@@ -1,0 +1,3 @@
+resources:
+  - gitlab-registry-secret.yaml
+  - deployment.yaml

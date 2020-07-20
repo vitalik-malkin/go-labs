@@ -1,0 +1,48 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: deploy-service
+  name: gateway
+spec:
+  replicas: 1
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: gateway
+  template:
+    metadata:
+      name: gateway
+      labels:
+        app: gateway
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/metrics"
+        prometheus.io/port: "8080"
+    spec:
+      containers:
+        - name: gateway
+          ports:
+            - containerPort: 443
+            - containerPort: 8080
+      imagePullSecrets:
+        - name: gitlab-registry-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: deploy-service
+  name: gateway
+spec:
+  selector:
+    app: gateway
+  ports:
+    - name: gateway
+      port: 443
+    - name: diag-http-port
+      port: 8080
+  type: ClusterIP

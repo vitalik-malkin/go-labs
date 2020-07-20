@@ -1,0 +1,17 @@
+resources:
+  - namespace.yaml
+bases:
+  - ../../base
+patches:
+  - patch.yaml
+namespace: deploy-service
+secretGenerator:
+  - name: tls-certificates
+    files:
+      - "tls-certificates/ca.crt"
+      - "tls-certificates/client-cert.crt"
+      - "tls-certificates/client-cert.key"
+      - "tls-certificates/server-cert.crt"
+      - "tls-certificates/server-cert.key"
+generatorOptions:
+  disableNameSuffixHash: true

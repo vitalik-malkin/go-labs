@@ -1,0 +1,61 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: deploy-service
+  name: gateway
+spec:
+  replicas: 1
+  template:
+    metadata:
+      name: gateway
+      labels:
+        app: gateway
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: deploy-service-0606f
+      containers:
+        - name: gateway
+          image: git.wildberries.ru:4567/infrastructure/deploy-service/deploy-service/gateway:v0.0.1-test-219-3
+          env:
+            - name: DEBUG
+              value: "true"
+            - name: PORT
+              value: "80"
+            - name: COOKIE_DOMAIN
+              value: ".deploy-service.svc.k8s.dataline"
+            - name: DEPLOY_SERVICE_ADDRESS
+              value: "https://api.deploy-service.svc.k8s.dataline"
+            - name: DEPLOY_SERVICE_AUTH_ADDRESS
+              value: "https://service-auth.deploy-service.svc.k8s.dataline"
+            - name: ACCESS_CONTROL_ALLOW_ORIGIN
+              value: "https://api.deploy-service.svc.k8s.dataline"
+            - name: ACCESS_CONTROL_ALLOW_CREDENTIALS
+              value: "true"
+            - name: ACCESS_CONTROL_ALLOW_HEADERS
+              value: "X-Requested-With"
+            - name: DEPLOY_SERVICE_GENERATOR_SERVICE_ACCOUNT_URL
+              value: "https://service-generator.deploy-service-generator.svc.k8s.dataline"
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: 80
+            initialDelaySeconds: 180
+            periodSeconds: 5
+          imagePullPolicy: Always
+          volumeMounts:
+            - name: tls-certificates
+              mountPath: /tls-certificates
+              readOnly: true
+      volumes:
+        - name: tls-certificates
+          secret:
+              secretName: tls-certificates

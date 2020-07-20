@@ -1,0 +1,84 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: deploy-service
+  name: gateway
+spec:
+  replicas: 1
+  template:
+    metadata:
+      name: gateway
+      labels:
+        app: gateway
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/metrics"
+        prometheus.io/port: "8080"
+    spec:
+      serviceAccountName: deploy-service-0606f
+      containers:
+        - name: gateway
+          image: git.wildberries.ru:4567/infrastructure/deploy-service/deploy-service/gateway:v0.0.1-test-219-3
+          env:
+            - name: DEBUG
+              value: "true"
+            - name: DIAG_HTTP_PORT
+              value: "8080"
+            - name: PORT
+              value: "443"
+            - name: COOKIE_DOMAIN
+              value: ".deploy-service.svc.k8s.stage"
+            - name: DEPLOY_SERVICE_ADDRESS
+              value: "https://server.deploy-service.svc.k8s.stage"
+            - name: DEPLOY_SERVICE_AUTH_ADDRESS
+              value: "service-auth.deploy-service.svc.k8s.stage:443"
+            - name: ACCESS_CONTROL_ALLOW_ORIGIN
+              value: "https://api.deploy-service.svc.k8s.stage"
+            - name: ACCESS_CONTROL_ALLOW_CREDENTIALS
+              value: "true"
+            - name: ACCESS_CONTROL_ALLOW_HEADERS
+              value: "X-Requested-With"
+            - name: TRACES_SERVICE
+              value: "gateway"
+            - name: GRPC_GO_LOG_VERBOSITY_LEVEL
+              value: "99"
+            - name: GRPC_GO_LOG_SEVERITY_LEVEL
+              value: "warning"
+            - name: TLS_SERVER_PEER_CERTIFICATE_CN_REGEX
+              value: "(?i)^([a-z0-9\\-]+\\.deploy\\-service\\.svc\\.k8s\\.stage)$"
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: 8080
+            initialDelaySeconds: 180
+            periodSeconds: 5
+          imagePullPolicy: Always
+          volumeMounts:
+            - name: tls-certificates
+              mountPath: /tls-certificates
+              readOnly: true
+        - name: jaeger-agent
+          image: jaegertracing/jaeger-agent:1.6.0
+          ports:
+            - containerPort: 5775
+              protocol: UDP
+            - containerPort: 6831
+              protocol: UDP
+            - containerPort: 6832
+              protocol: UDP
+            - containerPort: 5778
+              protocol: TCP
+          command:
+            - "/go/bin/agent-linux"
+            - "--collector.host-port=jaeger-collector.tracing.svc:14267"
+      volumes:
+        - name: tls-certificates
+          secret:
+              secretName: tls-certificates
