@@ -1,0 +1,30 @@
+version: "3.8"
+
+networks: 
+  main_network:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 10.37.1.0/24
+
+services:
+  # ETCD
+  #
+  etcd:
+    image: docker.io/bitnami/etcd:3-debian-10
+    ports:
+      - "2379:2379"
+      - "2380:2380"
+    networks:
+      main_network:
+    environment:
+      - ALLOW_NONE_AUTHENTICATION=yes
+      - ETCD_ADVERTISE_CLIENT_URLS=http://etcd-server:2379
+    volumes:
+      - etcd_data:/bitname/etcd
+
+volumes:
+  logs:
+  etcd_data:
+    driver: local
