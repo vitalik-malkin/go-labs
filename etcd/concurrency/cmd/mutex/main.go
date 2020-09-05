@@ -28,11 +28,12 @@ type lockState struct {
 type opState struct {
 	code opCode
 	lock *lockState
+	ctx  context.Context
 
 	resp chan error
 }
 
-type lockLoopState struct {
+type clientState struct {
 	name string
 
 	ctx context.Context
@@ -61,14 +62,14 @@ func main() {
 		log.Fatal(err)
 	}
 
-	l1 := lockLoopState{
+	l1 := clientState{
 		name: "LOOP-1",
 		ctx:  mainCtx,
 		op:   make(chan opState),
 	}
 	go lockLoop(l1)
 
-	l2 := lockLoopState{
+	l2 := clientState{
 		name: "LOOP-2",
 		ctx:  mainCtx,
 		op:   make(chan opState),
@@ -82,67 +83,79 @@ func main() {
 	fmt.Println("\nexiting...")
 }
 
-func workLoop(state lockLoopState) {
+func workLoop(cl clientState) {
 	for {
 		select {
-		case <-state.ctx.Done():
+		case <-cl.ctx.Done():
 			return
 		default:
-			op := opState{
-				code: lockOpCode,
-				lock: &lockState{
-					name: "lck1",
-				},
-				resp: make(chan error, 1),
-			}
-			state.op <- op
-			err := <-op.resp
+			time.Sleep(time.Second)
 
+			err := placeLock(cl, "lck1")
 			if err != nil {
-				clr.Error.Printf("work '%s': %v\n", state.name, err)
-				time.Sleep(time.Second)
+				clr.Error.Printf("%s (WORK): %v\n", cl.name, err)
 				continue
 			}
-			clr.Info.Printf("work '%s': doing work...\n", state.name)
+
+			clr.Info.Printf("%s (WORK): doing work...\n", cl.name)
 			time.Sleep(10 * time.Second)
 
-			op = opState{
-				code: unlockOpCode,
-				lock: &lockState{
-					name: "lck1",
-				},
-				resp: make(chan error, 1),
-			}
-			state.op <- op
-			err = <-op.resp
-
+			err = releaseLock(cl, "lck1")
 			if err != nil {
-				clr.Error.Printf("work '%s': %v\n", state.name, err)
+				clr.Error.Printf("%s (WORK): %v\n", cl.name, err)
 			}
 
 		}
 	}
 }
 
-func lockLoop(state lockLoopState) error {
+func placeLock(cl clientState, name string) (err error) {
+	op := opState{
+		code: lockOpCode,
+		lock: &lockState{
+			name: name,
+		},
+		resp: make(chan error, 1),
+	}
+	cl.op <- op
+	err = <-op.resp
+
+	return
+}
+
+func releaseLock(cl clientState, name string) (err error) {
+	op := opState{
+		code: unlockOpCode,
+		lock: &lockState{
+			name: name,
+		},
+		resp: make(chan error, 1),
+	}
+	cl.op <- op
+	err = <-op.resp
+
+	return
+}
+
+func lockLoop(cl clientState) error {
 	session, err := etcd_conc.NewSession(
 		cli,
 	)
 	if err != nil {
-		clr.Error.Printf("error while creating session for '%s': %v", state.name, err)
+		clr.Error.Printf("error while creating session for '%s': %v", cl.name, err)
 		return err
 	}
 	defer session.Close()
 
-	clr.Info.Printf("%s: started\n", state.name)
+	clr.Info.Printf("%s: started\n", cl.name)
 
 	muses := make(map[string]*etcd_conc.Mutex)
 
 	for {
 		select {
-		case <-state.ctx.Done():
-			return state.ctx.Err()
-		case op := <-state.op:
+		case <-cl.ctx.Done():
+			return cl.ctx.Err()
+		case op := <-cl.op:
 			muPfx := fmt.Sprintf("/%s/", op.lock.name)
 
 			switch op.code {
@@ -152,11 +165,11 @@ func lockLoop(state lockLoopState) error {
 					mu = etcd_conc.NewMutex(session, muPfx)
 					muses[muPfx] = mu
 				}
-				err := mu.Lock(state.ctx)
+				err := mu.Lock(cl.ctx)
 				if err == nil {
-					clr.Info.Printf("%s: lock('%s'), SUCCESS\n", state.name, op.lock.name)
+					clr.Info.Printf("%s: lock('%s'), SUCCESS\n", cl.name, op.lock.name)
 				} else {
-					clr.Error.Printf("%s: lock('%s'), FAIL: %v\n", state.name, op.lock.name, err)
+					clr.Error.Printf("%s: lock('%s'), FAIL: %v\n", cl.name, op.lock.name, err)
 				}
 
 				op.resp <- err
@@ -167,12 +180,12 @@ func lockLoop(state lockLoopState) error {
 					err = fmt.Errorf("consistency violation: no mutex found by name '%s'", muPfx)
 				}
 				if err == nil {
-					err = mu.Unlock(state.ctx)
+					err = mu.Unlock(cl.ctx)
 				}
 				if err == nil {
-					clr.Info.Printf("%s: unlock('%s'), SUCCESS\n", state.name, op.lock.name)
+					clr.Info.Printf("%s: unlock('%s'), SUCCESS\n", cl.name, op.lock.name)
 				} else {
-					clr.Error.Printf("%s: unlock('%s'), FAIL: %v\n", state.name, op.lock.name, err)
+					clr.Error.Printf("%s: unlock('%s'), FAIL: %v\n", cl.name, op.lock.name, err)
 				}
 				op.resp <- err
 			default:
