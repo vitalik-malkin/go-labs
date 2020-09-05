@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math/rand"
 	"os"
 	"os/signal"
 	"syscall"
@@ -38,6 +39,8 @@ type clientState struct {
 
 	ctx context.Context
 	op  chan opState
+
+	stop chan struct{}
 }
 
 var cli *etcd_cli.Client
@@ -52,38 +55,45 @@ func main() {
 	}()
 	var err error
 
+	clr.Info.Printf("connecting to etcd...\n")
 	cli, err = etcd_cli.New(
 		etcd_cli.Config{
 			Endpoints: []string{"localhost:2379"},
-			Context:   mainCtx,
 		},
 	)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	l1 := clientState{
-		name: "LOOP-1",
+	cl1 := clientState{
+		name: "C-1",
 		ctx:  mainCtx,
 		op:   make(chan opState),
+		stop: make(chan struct{}, 1),
 	}
-	go lockLoop(l1)
+	go lockLoop(cl1)
 
-	l2 := clientState{
-		name: "LOOP-2",
+	cl2 := clientState{
+		name: "C-2",
 		ctx:  mainCtx,
 		op:   make(chan opState),
+		stop: make(chan struct{}, 1),
 	}
-	go lockLoop(l2)
+	go lockLoop(cl2)
 
-	go workLoop(l1)
-	go workLoop(l2)
+	go workLoop(cl1)
+	go workLoop(cl2)
 
 	<-mainCtx.Done()
-	fmt.Println("\nexiting...")
+	clr.FgBlue.Println("\nexiting...")
+	<-cl1.stop
+	clr.FgBlue.Printf("%s: done\n", cl1.name)
+	<-cl2.stop
+	clr.FgBlue.Printf("%s: done\n", cl2.name)
 }
 
 func workLoop(cl clientState) {
+	lckName := "LCK_2"
 	for {
 		select {
 		case <-cl.ctx.Done():
@@ -91,16 +101,18 @@ func workLoop(cl clientState) {
 		default:
 			time.Sleep(time.Second)
 
-			err := placeLock(cl, "lck1")
+			timeoutMs := int64(rand.Float32()*3000.0) + 1000
+			err := placeLock(cl.ctx, cl, lckName, timeoutMs)
 			if err != nil {
-				clr.Error.Printf("%s (WORK): %v\n", cl.name, err)
+				clr.Error.Printf("%s (WORK): timeout=%d, %v\n", cl.name, timeoutMs, err)
 				continue
 			}
 
-			clr.Info.Printf("%s (WORK): doing work...\n", cl.name)
+			timeoutMs = int64(rand.Float32()*7000.0) + 3000
+			clr.Yellow.Printf("%s (WORK): duration=%d, doing work...\n", cl.name, timeoutMs)
 			time.Sleep(10 * time.Second)
 
-			err = releaseLock(cl, "lck1")
+			err = releaseLock(cl, lckName)
 			if err != nil {
 				clr.Error.Printf("%s (WORK): %v\n", cl.name, err)
 			}
@@ -109,12 +121,16 @@ func workLoop(cl clientState) {
 	}
 }
 
-func placeLock(cl clientState, name string) (err error) {
+func placeLock(ctx context.Context, cl clientState, name string, timeoutMs int64) (err error) {
+	ctx, cancel := context.WithTimeout(ctx, time.Millisecond*time.Duration(timeoutMs))
+	defer cancel()
+
 	op := opState{
 		code: lockOpCode,
 		lock: &lockState{
 			name: name,
 		},
+		ctx:  ctx,
 		resp: make(chan error, 1),
 	}
 	cl.op <- op
@@ -129,6 +145,7 @@ func releaseLock(cl clientState, name string) (err error) {
 		lock: &lockState{
 			name: name,
 		},
+		ctx:  context.Background(),
 		resp: make(chan error, 1),
 	}
 	cl.op <- op
@@ -138,6 +155,10 @@ func releaseLock(cl clientState, name string) (err error) {
 }
 
 func lockLoop(cl clientState) error {
+	defer func() {
+		cl.stop <- struct{}{}
+	}()
+
 	session, err := etcd_conc.NewSession(
 		cli,
 	)
@@ -145,7 +166,10 @@ func lockLoop(cl clientState) error {
 		clr.Error.Printf("error while creating session for '%s': %v", cl.name, err)
 		return err
 	}
-	defer session.Close()
+	defer func() {
+		session.Close()
+		clr.FgBlue.Printf("%s: session closed\n", cl.name)
+	}()
 
 	clr.Info.Printf("%s: started\n", cl.name)
 
@@ -165,7 +189,7 @@ func lockLoop(cl clientState) error {
 					mu = etcd_conc.NewMutex(session, muPfx)
 					muses[muPfx] = mu
 				}
-				err := mu.Lock(cl.ctx)
+				err := mu.Lock(op.ctx)
 				if err == nil {
 					clr.Info.Printf("%s: lock('%s'), SUCCESS\n", cl.name, op.lock.name)
 				} else {
@@ -180,7 +204,7 @@ func lockLoop(cl clientState) error {
 					err = fmt.Errorf("consistency violation: no mutex found by name '%s'", muPfx)
 				}
 				if err == nil {
-					err = mu.Unlock(cl.ctx)
+					err = mu.Unlock(op.ctx)
 				}
 				if err == nil {
 					clr.Info.Printf("%s: unlock('%s'), SUCCESS\n", cl.name, op.lock.name)
