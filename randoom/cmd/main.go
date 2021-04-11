@@ -5,6 +5,7 @@ import (
 	cr "crypto/rand"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"sort"
 	"strconv"
@@ -53,10 +54,16 @@ func main() {
 			numStat[fieldSet[i][u]-1] = numStat[fieldSet[i][u]-1] + 1
 		}
 	}
-	fmt.Print("\nStat:\n")
-	for i, v := range numStat {
-		fmt.Printf("%d: %d\n", i+1, v)
+	numStatMin, numStatMax := math.MaxInt32, math.MinInt32
+	for _, v := range numStat {
+		if numStatMin > v {
+			numStatMin = v
+		}
+		if numStatMax < v {
+			numStatMax = v
+		}
 	}
+	fmt.Printf("\nStat: min=%d, max=%d", numStatMin, numStatMax)
 
 	os.Exit(0)
 }
@@ -114,9 +121,16 @@ func (s seed) nextRandom20() int {
 func (s seed) nextRandom20FieldSet(fieldSize, setSize int) [][]int {
 
 	numOverallRepeatLim := (fieldSize * setSize) / 20
-	numOverFieldRepeatLim := 1
-	numAttemptLim := (fieldSize * setSize)
-	fieldAttemptLim := numOverallRepeatLim
+	numOverFieldRepeatLim :=
+		func() int {
+			const x = 2
+			if x < numOverallRepeatLim {
+				return x
+			}
+			return numOverallRepeatLim
+		}()
+	nextNumAttemptLim := (fieldSize * setSize)
+	nextFieldAttemptLim := numOverallRepeatLim
 
 	fieldSetAttempt := 0
 nextFieldSet:
@@ -131,7 +145,7 @@ nextFieldSet:
 		fieldAttempt := 0
 	nextField:
 		fieldAttempt++
-		if fieldAttempt > fieldAttemptLim {
+		if fieldAttempt > nextFieldAttemptLim {
 			goto nextFieldSet
 		}
 
@@ -139,7 +153,10 @@ nextFieldSet:
 			numAttempt := 0
 		nextNum:
 			numAttempt++
-			if numAttempt > numAttemptLim {
+			if numAttempt > nextNumAttemptLim {
+				if s.nextRandom()%2 == 0 {
+					goto nextField
+				}
 				goto nextFieldSet
 			}
 			num := s.nextRandom20()
