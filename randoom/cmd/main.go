@@ -34,7 +34,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	fieldSet := s.nextRandom20FieldSet(4, 30)
+	fieldSet := s.nextRandom20FieldSet(4, 14)
 	numStat := make([]int, 20)
 	fmt.Print("Sets:\n")
 	for i := 0; i < len(fieldSet); i++ {
@@ -120,10 +120,10 @@ func (s seed) nextRandom20() int {
 
 func (s seed) nextRandom20FieldSet(fieldSize, setSize int) [][]int {
 
-	numOverallRepeatLim := (fieldSize * setSize) / 20
+	numOverallRepeatLim := (fieldSize*setSize)/20 + 1
 	numOverFieldRepeatLim :=
 		func() int {
-			const x = 2
+			const x = 1
 			if x < numOverallRepeatLim {
 				return x
 			}
