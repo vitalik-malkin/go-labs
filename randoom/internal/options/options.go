@@ -19,13 +19,13 @@ func Load() Options {
 	opts := Options{
 		seedFile: "./../config/seed.txt",
 
-		maxOfNum: 20,
+		maxOfNum: 300,
 
-		fieldSetSize: 26,
-		fieldSize:    4,
+		fieldSetSize: 70,
+		fieldSize:    5,
 
-		maxOfNeighboringNumsInField: 1,
-		fieldSimilarityDegree:       1,
+		maxOfNeighboringNumsInField: 0,
+		fieldSimilarityDegree:       0,
 
 		genNumAttemptLimit:      300,
 		genFieldAttemptLimit:    300,
