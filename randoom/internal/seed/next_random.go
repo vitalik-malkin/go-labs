@@ -1,12 +1,15 @@
 package seed
 
 import (
+	"context"
 	cr "crypto/rand"
 	"fmt"
 	"log"
 	"math"
 	"math/big"
 	"sort"
+
+	gt "github.com/buger/goterm"
 
 	intl_opts "github.com/vitalik-malkin/go-labs/randoom/internal/options"
 )
@@ -24,11 +27,7 @@ func (s *Seed) NextRandom(max int32) int32 {
 	return res
 }
 
-func (s *Seed) NextRandom20() int32 {
-	return s.NextRandom(int32(20)) + 1
-}
-
-func (s *Seed) NextRandom20FieldSet(opts intl_opts.Options) [][]int32 {
+func (s *Seed) NextRandomFieldSet(opts intl_opts.Options) [][]int32 {
 	var (
 		fieldSize = int32(opts.FieldSize())
 		setSize   = int32(opts.FieldSetSize())
@@ -84,6 +83,198 @@ nextFieldSet:
 	fmt.Print("done!\n\n")
 
 	return fieldSet
+}
+
+func (s *Seed) NextRandomFieldSetV2(opts intl_opts.Options) [][]int32 {
+	var (
+		fieldSize                      = opts.FieldSize()
+		setSize                        = opts.FieldSetSize()
+		maxOfNum                       = opts.MaxOfNum()
+		attemptLimit                   = opts.GenFieldSetAttemptLimit()
+		numTotalUses                   = setSize * fieldSize
+		numUses                        = make([]int, maxOfNum)
+		numMinUse                      = numTotalUses / int(maxOfNum)
+		numMaxOfMinUsePlusOne          = numTotalUses % int(maxOfNum)
+		genNumAttemptLimit             = opts.GenNumAttemptLimit()
+		genFieldAttemptLimit           = opts.GenFieldAttemptLimit()
+		maxOfFieldsWithNeighboringNums = opts.MaxOfFieldsWithNeighboringNums()
+	)
+
+	gt.Clear()
+	gt.MoveCursor(1, 1)
+	gt.Print(gt.Color("======================================================", gt.GREEN))
+	gt.Flush()
+
+	successAttempt := 0
+	fields := make([]Field, setSize)
+genFieldSet:
+	for attempt := 0; successAttempt == 0 && attempt < attemptLimit; attempt++ {
+		if attempt < 9999 {
+			gt.MoveCursor(1, 2)
+			gt.Printf("Attempt %d from %dma...", (attempt + 1), attemptLimit/10000)
+			gt.Flush()
+		} else if (attempt+1)%10000 == 0 {
+			gt.MoveCursor(1, 2)
+			gt.Printf("Attempt %dma from %dma...", (attempt+1)/10000, attemptLimit/10000)
+			gt.Flush()
+		}
+
+		// reset all
+		var (
+			numMaxOfMinUsePlusOneVal          int
+			maxOfFieldsWithNeighboringNumsVal int
+		)
+		{
+			for fIdx := 0; fIdx < setSize; fIdx++ {
+				fields[fIdx].Reset(int(maxOfNum))
+			}
+			for i := 0; i < len(numUses); i++ {
+				numUses[i] = 0
+			}
+			numMaxOfMinUsePlusOneVal = numMaxOfMinUsePlusOne
+			maxOfFieldsWithNeighboringNumsVal = maxOfFieldsWithNeighboringNums
+		}
+
+		// fill all fields
+		for fIdx := 0; fIdx < setSize; fIdx++ {
+			genFieldAttempt := 0
+		genField:
+			genFieldAttempt++
+			if genFieldAttempt > genFieldAttemptLimit {
+				continue genFieldSet
+			}
+
+			// fill field.
+			genNumAttempt := 0
+			withNeighboringNums := false
+			countOfMinUsePlusOne := 0
+			for c := 0; c != fieldSize; {
+				genNumAttempt++
+				if genNumAttempt > genNumAttemptLimit {
+					continue genFieldSet
+				}
+				num := int(s.NextRandom(maxOfNum))
+				isNeighbourNum := fields[fIdx].IsNeighbour(num + 1)
+				if isNeighbourNum && maxOfFieldsWithNeighboringNumsVal == 0 {
+					continue
+				}
+				if fields[fIdx].Set(num + 1) {
+					l := numUses[num] + 1
+					switch {
+					case l <= numMinUse:
+						numUses[num] = l
+						if isNeighbourNum {
+							withNeighboringNums = true
+						}
+					case l == numMinUse+1 && numMaxOfMinUsePlusOneVal > 0:
+						numUses[num] = l
+						numMaxOfMinUsePlusOneVal--
+						countOfMinUsePlusOne++
+						if isNeighbourNum {
+							withNeighboringNums = true
+						}
+					default:
+						fields[fIdx].Unset(num + 1)
+						continue
+					}
+					c++
+				}
+			}
+
+			if SimilarityDegreeSlice(fields[:fIdx+1]) > opts.FieldSimilarityDegree() {
+				for _, num := range fields[fIdx].Nums() {
+					numUses[num-1] = numUses[num-1] - 1
+				}
+				fields[fIdx].Reset(int(maxOfNum))
+				numMaxOfMinUsePlusOneVal = numMaxOfMinUsePlusOneVal + countOfMinUsePlusOne
+				goto genField
+			}
+
+			if withNeighboringNums {
+				maxOfFieldsWithNeighboringNumsVal--
+			}
+
+		}
+
+		// verify constraints
+		if !MagicCheckF(fields) {
+			continue
+		}
+
+		successAttempt = attempt + 1
+	}
+
+	if successAttempt != 0 {
+		fmt.Printf("\ndone at %d attempt!\n\n", successAttempt)
+		result := make([][]int32, setSize)
+		for t := 0; t < setSize; t++ {
+			result[t] = fields[t].Nums()
+		}
+		return result
+	}
+
+	fmt.Printf("\n===============\nAttempts limit reached. No results.\n")
+	return nil
+}
+
+func (s *Seed) GenerateField2(opts intl_opts.Options) Field2 {
+	f2 := []Field{{}, {}}
+	f2[0].Reset(int(opts.MaxOfNum()))
+	f2[1].Reset(int(opts.MaxOfNum()))
+
+	for i := 0; i < len(f2); i++ {
+		c := 0
+		for c != opts.FieldSize() {
+			n := s.NextRandom(opts.MaxOfNum()) + 1
+			if f2[i].Set(int(n)) {
+				c++
+			}
+		}
+	}
+
+	return Field2{F1: f2[0], F2: f2[1]}
+}
+
+func (s *Seed) Field2RandomStream(ctx context.Context, opts intl_opts.Options) <-chan Field2 {
+	ch := make(chan Field2)
+
+	go func() {
+		f2 := []Field{{}, {}}
+		maxOfNum := int(opts.MaxOfNum())
+		for {
+			select {
+			case <-ctx.Done():
+				close(ch)
+				return
+			default:
+				f2[0].Reset(maxOfNum)
+				f2[1].Reset(maxOfNum)
+				for i := 0; i < len(f2); i++ {
+					c := 0
+					for c != opts.FieldSize() {
+						n := s.NextRandom(opts.MaxOfNum()) + 1
+						if f2[i].Set(int(n)) {
+							c++
+						}
+					}
+				}
+
+				f := Field2{
+					F1: f2[0],
+					F2: f2[1],
+				}
+
+				select {
+				case ch <- f:
+				case <-ctx.Done():
+					close(ch)
+					return
+				}
+			}
+		}
+	}()
+
+	return ch
 }
 
 func isViolatingNeighboringCond(field []int32, opts intl_opts.Options) bool {

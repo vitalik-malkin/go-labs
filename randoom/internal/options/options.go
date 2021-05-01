@@ -3,12 +3,17 @@ package options
 type Options struct {
 	seedFile string
 
-	maxOfNum                    int32
-	maxOfRepeatOfNumPerFieldSet int
-	fieldSize                   int
-	fieldSetSize                int
-	maxOfNeighboringNumsInField int
-	fieldSimilarityDegree       int
+	generatorVersion int
+
+	maxOfNum int32
+
+	fieldSize    int
+	fieldSetSize int
+
+	maxOfRepeatOfNumPerFieldSet    int
+	maxOfNeighboringNumsInField    int
+	fieldSimilarityDegree          int
+	maxOfFieldsWithNeighboringNums int
 
 	genNumAttemptLimit      int
 	genFieldAttemptLimit    int
@@ -19,16 +24,19 @@ func Load() Options {
 	opts := Options{
 		seedFile: "./../config/seed.txt",
 
-		maxOfNum: 600,
+		generatorVersion: 2,
 
-		fieldSetSize: 200,
-		fieldSize:    41,
+		maxOfNum: 1000,
 
-		maxOfNeighboringNumsInField: 0,
-		fieldSimilarityDegree:       1,
+		fieldSetSize: 36,
+		fieldSize:    100,
 
-		genNumAttemptLimit:      300,
-		genFieldAttemptLimit:    300,
+		maxOfNeighboringNumsInField:    0,
+		fieldSimilarityDegree:          1,
+		maxOfFieldsWithNeighboringNums: 0,
+
+		genNumAttemptLimit:      400,
+		genFieldAttemptLimit:    400,
 		genFieldSetAttemptLimit: 80000000,
 	}
 	opts.maxOfRepeatOfNumPerFieldSet = (opts.fieldSize * opts.fieldSetSize) / int(opts.maxOfNum)
@@ -73,4 +81,12 @@ func (o *Options) GenFieldSetAttemptLimit() int {
 
 func (o *Options) MaxOfNum() int32 {
 	return o.maxOfNum
+}
+
+func (o *Options) GeneratorVersion() int {
+	return o.generatorVersion
+}
+
+func (o *Options) MaxOfFieldsWithNeighboringNums() int {
+	return o.maxOfFieldsWithNeighboringNums
 }

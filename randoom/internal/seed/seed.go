@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"os"
 	"strconv"
+	"sync"
 	"unsafe"
 
 	intl_opts "github.com/vitalik-malkin/go-labs/randoom/internal/options"
@@ -19,6 +20,10 @@ type Seed struct {
 
 	bufReadOffset          int
 	bufReadOffsetResetNeed bool
+
+	m sync.Mutex
+
+	offsetResetCount int
 }
 
 func Load(opts intl_opts.Options) (*Seed, error) {
@@ -113,13 +118,35 @@ func (s *Seed) resetOffset() {
 
 	s.bufReadOffset = int(newOffsetBig.Int64())
 	s.bufReadOffsetResetNeed = false
+	s.offsetResetCount++
+}
+
+func (s *Seed) Reset() {
+	l := int32(len(s.buf))
+	for i := int32(0); i < l/2; i++ {
+		n1, n2 := s.NextRandom(l), s.NextRandom(l)
+		s.buf[n1], s.buf[n2] = s.buf[n2], s.buf[n1]
+	}
+	s.bufReadOffsetResetNeed = true
+	s.offsetResetCount = 0
+}
+
+func (s *Seed) OffsetResetCount() int {
+	s.m.Lock()
+	x := s.offsetResetCount
+	s.m.Unlock()
+	return x
 }
 
 func (s *Seed) Read(p []byte) (n int, err error) {
+	s.m.Lock()
+
 	if len(p) == 0 {
+		s.m.Unlock()
 		return 0, nil
 	}
 	if len(p) > len(s.buf) {
+		s.m.Unlock()
 		return 0, fmt.Errorf("len %d requested to read is too large; max is %d", len(p), len(s.buf))
 	}
 
@@ -146,5 +173,6 @@ func (s *Seed) Read(p []byte) (n int, err error) {
 		s.bufReadOffsetResetNeed = true
 	}
 
+	s.m.Unlock()
 	return dstLen, nil
 }
