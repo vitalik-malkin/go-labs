@@ -28,7 +28,9 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("%+v.\n", m)
+	for _, i := range m {
+		fmt.Printf("%+v\n", i)
+	}
 	os.Exit(0)
 
 	opts := intl_opts.Load()
