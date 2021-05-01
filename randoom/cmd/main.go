@@ -97,7 +97,7 @@ func findMatch(maxTPerSession int) ([]findMatchR, error) {
 	}
 
 	sessionNum := 0
-	resCount := 10
+	resCount := 100
 	res := make([]findMatchR, 0)
 	for len(res) != resCount {
 		sessionNum++
