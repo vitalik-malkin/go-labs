@@ -108,7 +108,8 @@ func (s *Seed) reset(zeroCounter bool) {
 		}
 		copy(randomizationSeed.buf, s.buf)
 
-		for i := int32(0); i < bufLen/2; i++ {
+		f := randomizationSeed.NextRandom(22) + 2
+		for i := int32(0); i < bufLen/f; i++ {
 			n1, n2 := randomizationSeed.NextRandom(bufLen), randomizationSeed.NextRandom(bufLen)
 			s.buf[n1], s.buf[n2] = s.buf[n2], s.buf[n1]
 		}

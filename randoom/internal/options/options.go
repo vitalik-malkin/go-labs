@@ -1,5 +1,9 @@
 package options
 
+import (
+	"flag"
+)
+
 type Options struct {
 	seedFile string
 
@@ -18,26 +22,43 @@ type Options struct {
 	genNumAttemptLimit      int
 	genFieldAttemptLimit    int
 	genFieldSetAttemptLimit int
+
+	dop int
 }
 
 func Load() Options {
+	var (
+		maxOfNum              int
+		fieldSetSize          int
+		fieldSize             int
+		fieldSimilarityDegree int
+	)
+
+	flag.IntVar(&maxOfNum, "max-of-num", 1, "")
+	flag.IntVar(&fieldSetSize, "field-set-size", 1, "")
+	flag.IntVar(&fieldSize, "field-size", 1, "")
+	flag.IntVar(&fieldSimilarityDegree, "field-similarity-degree", 1, "")
+	flag.Parse()
+
 	opts := Options{
 		seedFile: "./../config/seed.txt",
 
 		generatorVersion: 2,
 
-		maxOfNum: 10,
+		maxOfNum: int32(maxOfNum),
 
-		fieldSetSize: 240,
-		fieldSize:    40,
+		fieldSetSize: fieldSetSize,
+		fieldSize:    fieldSize,
 
 		maxOfNeighboringNumsInField:    0,
-		fieldSimilarityDegree:          1,
+		fieldSimilarityDegree:          fieldSimilarityDegree,
 		maxOfFieldsWithNeighboringNums: 0,
 
 		genNumAttemptLimit:      211,
 		genFieldAttemptLimit:    307,
 		genFieldSetAttemptLimit: 80000000,
+
+		dop: 4,
 	}
 	opts.maxOfRepeatOfNumPerFieldSet = (opts.fieldSize * opts.fieldSetSize) / int(opts.maxOfNum)
 	return opts
