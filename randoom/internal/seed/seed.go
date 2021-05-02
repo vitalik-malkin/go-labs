@@ -23,7 +23,9 @@ type Seed struct {
 
 	m sync.Mutex
 
-	offsetResetCount int
+	resetCount int
+
+	simpleResetMode bool
 }
 
 func Load(opts intl_opts.Options) (*Seed, error) {
@@ -31,13 +33,6 @@ func Load(opts intl_opts.Options) (*Seed, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	tmpSeed, err := load(seedNums)
-	if err != nil {
-		return nil, err
-	}
-
-	randomizeSeedNums(seedNums, tmpSeed)
 
 	return load(seedNums)
 }
@@ -79,61 +74,61 @@ func load(seedNums []int32) (*Seed, error) {
 		num := int32(seedNum)
 		numPtr := unsafe.Pointer(&num)
 		numBytes := (*[4]byte)(numPtr)
-		pZero := false
 		for i := 0; i < 4; i++ {
-			if numBytes[i] == 0 && pZero {
+			if numBytes[i] == 0 {
 				continue
 			}
 			buf = append(buf, numBytes[i])
-			pZero = numBytes[i] == 0
 		}
 	}
 
 	res := &Seed{buf: buf}
-	res.resetOffset()
+	res.Reset()
 
 	return res, nil
 }
 
-func randomizeSeedNums(seedNums []int32, s *Seed) {
-	l := int32(len(seedNums))
-	for i := int32(0); i < l/2; i++ {
-		n1, n2 := s.NextRandom(l), s.NextRandom(l)
-		seedNums[n1], seedNums[n2] = seedNums[n2], seedNums[n1]
-	}
-}
-
-func (s *Seed) resetOffset() {
-	if len(s.buf) < 2 {
-		s.bufReadOffset = 0
-		return
-	}
-
-	bufLen := big.NewInt(int64(len(s.buf)))
-	newOffsetBig, err := cr.Int(cr.Reader, bufLen)
-	if err != nil {
-		log.Fatalf("error while generating random offset; err: %v", err)
-		return
-	}
-
-	s.bufReadOffset = int(newOffsetBig.Int64())
-	s.bufReadOffsetResetNeed = false
-	s.offsetResetCount++
-}
-
 func (s *Seed) Reset() {
-	l := int32(len(s.buf))
-	for i := int32(0); i < l/2; i++ {
-		n1, n2 := s.NextRandom(l), s.NextRandom(l)
-		s.buf[n1], s.buf[n2] = s.buf[n2], s.buf[n1]
-	}
-	s.bufReadOffsetResetNeed = true
-	s.offsetResetCount = 0
+	s.reset(true)
 }
 
-func (s *Seed) OffsetResetCount() int {
+func (s *Seed) reset(zeroCounter bool) {
 	s.m.Lock()
-	x := s.offsetResetCount
+
+	bufLen := int32(len(s.buf))
+	if s.simpleResetMode {
+		s.bufReadOffset = int(cryptoRandomInt32(bufLen))
+	} else {
+		randomizationSeed := &Seed{
+			buf:                    make([]byte, bufLen),
+			bufReadOffset:          int(cryptoRandomInt32(bufLen)),
+			bufReadOffsetResetNeed: false,
+			resetCount:             0,
+			simpleResetMode:        true,
+		}
+		copy(randomizationSeed.buf, s.buf)
+
+		for i := int32(0); i < bufLen/2; i++ {
+			n1, n2 := randomizationSeed.NextRandom(bufLen), randomizationSeed.NextRandom(bufLen)
+			s.buf[n1], s.buf[n2] = s.buf[n2], s.buf[n1]
+		}
+
+		s.bufReadOffset = int(randomizationSeed.NextRandom(bufLen))
+	}
+
+	s.bufReadOffsetResetNeed = false
+	if zeroCounter {
+		s.resetCount = 0
+	} else {
+		s.resetCount++
+	}
+
+	s.m.Unlock()
+}
+
+func (s *Seed) ResetCount() int {
+	s.m.Lock()
+	x := s.resetCount
 	s.m.Unlock()
 	return x
 }
@@ -151,7 +146,9 @@ func (s *Seed) Read(p []byte) (n int, err error) {
 	}
 
 	if s.bufReadOffsetResetNeed {
-		s.resetOffset()
+		s.m.Unlock()
+		s.reset(false)
+		s.m.Lock()
 	}
 
 	var (
@@ -175,4 +172,15 @@ func (s *Seed) Read(p []byte) (n int, err error) {
 
 	s.m.Unlock()
 	return dstLen, nil
+}
+
+func cryptoRandomInt32(max int32) int32 {
+	bigInt := big.NewInt(int64(max))
+	res, err := cr.Int(cr.Reader, bigInt)
+	if err != nil {
+		log.Fatalf("error while generating number using cryptorand; err: %v", err)
+		return 0
+	}
+
+	return int32(res.Int64())
 }

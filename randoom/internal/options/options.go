@@ -26,17 +26,17 @@ func Load() Options {
 
 		generatorVersion: 2,
 
-		maxOfNum: 1000,
+		maxOfNum: 10,
 
-		fieldSetSize: 36,
-		fieldSize:    100,
+		fieldSetSize: 240,
+		fieldSize:    40,
 
 		maxOfNeighboringNumsInField:    0,
 		fieldSimilarityDegree:          1,
 		maxOfFieldsWithNeighboringNums: 0,
 
-		genNumAttemptLimit:      400,
-		genFieldAttemptLimit:    400,
+		genNumAttemptLimit:      211,
+		genFieldAttemptLimit:    307,
 		genFieldSetAttemptLimit: 80000000,
 	}
 	opts.maxOfRepeatOfNumPerFieldSet = (opts.fieldSize * opts.fieldSetSize) / int(opts.maxOfNum)

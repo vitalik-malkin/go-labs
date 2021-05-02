@@ -24,14 +24,14 @@ func main() {
 		}
 	}()
 
-	m, err := findMatch(40000)
-	if err != nil {
-		panic(err)
-	}
-	for _, i := range m {
-		fmt.Printf("%+v\n", i)
-	}
-	os.Exit(0)
+	// m, err := findMatch(40000)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// for _, i := range m {
+	// 	fmt.Printf("%+v\n", i)
+	// }
+	// os.Exit(0)
 
 	opts := intl_opts.Load()
 	s, err := intl_seed.Load(opts)
@@ -129,7 +129,7 @@ func findMatch(maxTPerSession int) ([]findMatchR, error) {
 		cancel()
 
 		if sessionW {
-			res = append(res, findMatchR{SessionNum: sessionNum, TNum: tNum, SeedOffsetResetCount: tSeed.OffsetResetCount()})
+			res = append(res, findMatchR{SessionNum: sessionNum, TNum: tNum, SeedOffsetResetCount: tSeed.ResetCount()})
 			fmt.Printf("SESS %d, %s. WIN, %s, %d. End\n", sessionNum, target, sessionWF, tNum)
 			sessionNum = 0
 			tSeed.Reset()

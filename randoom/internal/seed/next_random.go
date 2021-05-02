@@ -109,13 +109,13 @@ func (s *Seed) NextRandomFieldSetV2(opts intl_opts.Options) [][]int32 {
 	fields := make([]Field, setSize)
 genFieldSet:
 	for attempt := 0; successAttempt == 0 && attempt < attemptLimit; attempt++ {
-		if attempt < 9999 {
+		if attempt < 999 {
 			gt.MoveCursor(1, 2)
-			gt.Printf("Attempt %d from %dma...", (attempt + 1), attemptLimit/10000)
+			gt.Printf("Attempt %d from %dk...", (attempt + 1), attemptLimit/1000)
 			gt.Flush()
-		} else if (attempt+1)%10000 == 0 {
+		} else if (attempt+1)%1000 == 0 {
 			gt.MoveCursor(1, 2)
-			gt.Printf("Attempt %dma from %dma...", (attempt+1)/10000, attemptLimit/10000)
+			gt.Printf("Attempt %dk from %dk...", (attempt+1)/1000, attemptLimit/1000)
 			gt.Flush()
 		}
 
