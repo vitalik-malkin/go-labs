@@ -8,13 +8,19 @@ import (
 )
 
 var rootCmd = &cobra.Command{
-	Use:          "",
-	Short:        "Very simple backup tool",
-	SilenceUsage: true,
+	Use:           "",
+	Short:         "Very simple backup tool",
+	SilenceUsage:  true,
+	SilenceErrors: true,
 }
 
 func init() {
+	// versionCmd
 	rootCmd.AddCommand(versionCmd)
+
+	// makeCmd
+	rootCmd.AddCommand(makeCmd)
+	makeCmd.Flags().AddFlagSet(makeCmdConfigVar.BindFlags(""))
 }
 
 func Exec() {

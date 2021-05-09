@@ -1,0 +1,10 @@
+{
+	"meta": {
+		"name": "Simple backup plan",
+		"description": "Simple backup plan (test)"
+	},
+	"driver": {
+		"name": "simple"
+	},
+	"source": ""
+}

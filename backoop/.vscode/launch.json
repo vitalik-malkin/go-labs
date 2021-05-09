@@ -16,6 +16,20 @@
 			"args": [
 				"version",
 			]
+		},
+		{
+			"name": "make",
+			"type": "go",
+			"request": "launch",
+			"mode": "debug",
+			"program": "${workspaceRoot}",
+			"env": {
+				"GODEBUG": "asyncpreemptoff=0"
+			},
+			"args": [
+				"make",
+				"--plan-file=test/pkg/plan/json/simple-plan-00.json"
+			]
 		}
 	]
 }
