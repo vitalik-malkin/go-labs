@@ -17,11 +17,14 @@ type Plan = interface {
 }
 
 type plan struct {
-	Meta models.MetaProps `json:"meta"`
-
+	Meta   models.MetaProps   `json:"meta"`
 	Driver models.DriverProps `json:"driver"`
 
-	Source string `json:"source"`
+	BackupStorageDeviceName        models.ParamVal `json:"backupStorageDeviceName,omitempty"`
+	BackupStorageAccessModel       models.ParamVal `json:"backupStorageAccessModel,omitempty"`
+	BackupStorageAccessModelParams models.ParamVal `json:"backupStorageAccessModelParams,omitempty"`
+	BackupPath                     models.ParamVal `json:"backupPath,omitempty"`
+	Source                         models.ParamVal `json:"source,omitempty"`
 }
 
 func (p *plan) IsReadOnly() bool {
@@ -29,14 +32,16 @@ func (p *plan) IsReadOnly() bool {
 }
 
 func (p *plan) GetMetaProps() (models.MetaProps, error) {
-	panic("not implemented yet")
+	return p.Meta, nil
 }
 
 func (p *plan) SetMetaProps(props models.MetaProps) error {
-	panic("not implemented yet")
+	p.Meta = props
+	return nil
 }
 
 func (p *plan) GetParam(ctx context.Context, key models.ParamKey) (models.ParamVal, error) {
+
 	panic("not implemented yet")
 }
 

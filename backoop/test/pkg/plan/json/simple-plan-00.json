@@ -6,5 +6,27 @@
 	"driver": {
 		"name": "simple"
 	},
-	"source": ""
+	"backupStorageDeviceName": {
+		"value": "sh -c 'echo $(basename $(readlink /dev/disk/by-uuid/5eecb532-9aff-4471-a71f-2d03c0ea3505))'",
+		"decoder": "command"
+	},
+	"backupStorageAccessModel": {
+		"value": "cryptsetup",
+		"decoder": ""
+	},
+	"backupStorageAccessModelParams": {
+		"value": {
+			"keyFile": "",
+			"gpgKeyId": ""
+		},
+		"decoder": "json"
+	},
+	"backupPath": {
+		"value": "/backup-home/$(whoami)",
+		"decoder": "bash"
+	},
+	"source": {
+		"value": "/home/vitalik",
+		"decoder": ""
+	}
 }

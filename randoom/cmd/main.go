@@ -34,18 +34,51 @@ func main() {
 	// os.Exit(0)
 
 	opts := intl_opts.Load()
-	s, err := intl_seed.Load(opts)
+
+	opts1 := opts
+	opts1.SetFieldSetSize(opts.FieldSetSize() / 2)
+	opts1.SetGenFieldSetAttemptLimit(opts.GenFieldSetAttemptLimit() / 2)
+	opts2 := opts
+	opts2.SetFieldSetSize(opts.FieldSetSize() - opts1.FieldSetSize())
+	opts2.SetGenFieldSetAttemptLimit(opts.GenFieldSetAttemptLimit() - opts1.GenFieldSetAttemptLimit())
+
+	seed1, err := intl_seed.Load(opts1)
+	if err != nil {
+		log.Fatal(err)
+	}
+	seed2, err := intl_seed.Load(opts2)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	var fieldSet [][]int32
+	var fieldSetGen1, fieldSetGen2 func(intl_opts.Options) [][]int32
 
 	switch opts.GeneratorVersion() {
 	case 2:
-		fieldSet = s.NextRandomFieldSetV2(opts)
+		fieldSetGen1, fieldSetGen2 = seed1.NextRandomFieldSetV2, seed2.NextRandomFieldSetV2
 	default:
-		fieldSet = s.NextRandomFieldSet(opts)
+		fieldSetGen1, fieldSetGen2 = seed1.NextRandomFieldSet, seed2.NextRandomFieldSet
+	}
+
+	var fieldSet [][]int32
+
+	fieldSet1 := fieldSetGen1(opts1)
+	fieldSet2 := fieldSetGen2(opts2)
+
+	if fieldSet1 != nil && fieldSet2 != nil {
+		fieldSet = make([][]int32, opts.FieldSetSize())
+
+		c := 0
+		for _, f := range fieldSet1 {
+			fieldSet[c] = f
+			c = c + 2
+		}
+
+		c = 1
+		for _, f := range fieldSet2 {
+			fieldSet[c] = f
+			c = c + 2
+		}
 	}
 
 	if fieldSet != nil {

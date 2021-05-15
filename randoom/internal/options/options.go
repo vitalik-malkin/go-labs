@@ -76,6 +76,10 @@ func (o *Options) FieldSetSize() int {
 	return o.fieldSetSize
 }
 
+func (o *Options) SetFieldSetSize(val int) {
+	o.fieldSetSize = val
+}
+
 func (o *Options) MaxOfNeighboringNumsInField() int {
 	return o.maxOfNeighboringNumsInField
 }
@@ -98,6 +102,10 @@ func (o *Options) GenFieldAttemptLimit() int {
 
 func (o *Options) GenFieldSetAttemptLimit() int {
 	return o.genFieldSetAttemptLimit
+}
+
+func (o *Options) SetGenFieldSetAttemptLimit(val int) {
+	o.genFieldSetAttemptLimit = val
 }
 
 func (o *Options) MaxOfNum() int32 {
