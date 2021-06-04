@@ -87,6 +87,7 @@ func takeLoop(ctx context.Context, l *log.Logger, dummy bool, noLogInfoLevel boo
 	subInboxChan := make(chan *stan.Msg, 1)
 	subErrChan := make(chan error, 1)
 	subAcks := make(chan struct{})
+	ctxDone := ctx.Done()
 
 	if !dummy {
 		sub, err := sc.QueueSubscribe(
@@ -94,20 +95,20 @@ func takeLoop(ctx context.Context, l *log.Logger, dummy bool, noLogInfoLevel boo
 			"subject00_group000",
 			func(msg *stan.Msg) {
 				select {
-				case <-ctx.Done():
+				case <-ctxDone:
 					return
 				case subInboxChan <- msg:
 					break
 				}
 
 				select {
-				case <-ctx.Done():
+				case <-ctxDone:
 					return
 				case <-subAcks:
 					err := msg.Ack()
 					if err != nil {
 						select {
-						case <-ctx.Done():
+						case <-ctxDone:
 							break
 						case subErrChan <- fmt.Errorf("ack error: %w", err):
 							break
@@ -140,7 +141,7 @@ func takeLoop(ctx context.Context, l *log.Logger, dummy bool, noLogInfoLevel boo
 
 	for {
 		select {
-		case <-ctx.Done():
+		case <-ctxDone:
 			l.Printf("take-loop: interrupted by context signal; acked: %d; duration: %s", ackedCount, time.Now().Sub(startDT))
 			return err
 		case msg := <-subInboxChan:
@@ -148,7 +149,7 @@ func takeLoop(ctx context.Context, l *log.Logger, dummy bool, noLogInfoLevel boo
 				l.Printf("take-loop: got data; data: %s; seq: %d", string(msg.Data), msg.Sequence)
 			}
 			select {
-			case <-ctx.Done():
+			case <-ctxDone:
 				return err
 			case subAcks <- struct{}{}:
 				ackedCount++
@@ -191,10 +192,11 @@ func publishLoop(ctx context.Context, l *log.Logger, dummy bool, noLogInfoLevel 
 
 	pubCount := 0
 	startDT := time.Now()
+	ctxDone := ctx.Done()
 
 	for {
 		select {
-		case <-ctx.Done():
+		case <-ctxDone:
 			l.Printf("pub-loop: interrupted by context signal; published: %d; duration: %s", pubCount, time.Now().Sub(startDT))
 			return nil
 		default:
