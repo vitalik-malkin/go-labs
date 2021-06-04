@@ -1,0 +1,67 @@
+version: "3.8"
+
+networks:
+  main_network:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 10.160.0.0/24
+
+services:
+  # Stream
+  #
+  stream:
+    image: nats-streaming:0.22.0
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+      - "8223:8223"
+      - "8000:8000"
+    networks:
+      main_network:
+        ipv4_address: 10.160.0.17
+    environment: []
+    restart: unless-stopped
+    entrypoint: "/nats-streaming-server -store file -dir datastore -cid cluster00 -msu 0 -mm 0 -mb 0 -ma 0s -mi 0"
+    volumes:
+      - nats_stream_data:/datastore
+
+  # Prometheus
+  #
+  prometheus:
+    image: bitnami/prometheus:2-debian-10
+    ports:
+      - "9290:9090"
+    networks:
+      main_network:
+    restart: unless-stopped
+    volumes:
+      - ./prometheus/prometheus.yml:/opt/bitnami/prometheus/conf/prometheus.yml
+      - prometheus_data:/opt/bitnami/prometheus/data:rw
+
+  # Grafana
+  #
+  grafana:
+    image: grafana/grafana:8.0.0-beta3-ubuntu
+    ports:
+      - "3000:3000"
+    environment: []
+    # GF_INSTALL_PLUGINS: 'grafana-kubernetes-app,worldpring=https://github.com/raintank/worldping-app/releases/download/v1.2.6/worldping-app-release-1.2.6.zip'
+    # GF_INSTALL_PLUGINS_SKIP_TLS: "yes"
+    # GF_SECURITY_ADMIN_PASSWORD: "bitnami"
+    networks:
+      main_network:
+    restart: unless-stopped
+    volumes:
+      - grafana_data:/opt/bitnami/grafana/data
+
+volumes:
+  logs:
+    driver: local
+  nats_stream_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
