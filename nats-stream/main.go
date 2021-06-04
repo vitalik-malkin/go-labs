@@ -18,64 +18,84 @@ func main() {
 	stopCtx, stopCtxF := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGABRT)
 	defer stopCtxF()
 
-	takeLoopExit, pubLoopExit := make(chan error, 1), make(chan error, 1)
+	takeLoopCount, pubLoopCount := 20, 20
+	takeLoopExit, pubLoopExit := make(chan error, takeLoopCount), make(chan error, pubLoopCount)
 	defer close(takeLoopExit)
 	defer close(pubLoopExit)
 
-	timeCtx, timeCtxCancelF := context.WithTimeout(stopCtx, time.Second*30)
+	timeCtx, timeCtxCancelF := context.WithTimeout(stopCtx, time.Second*10)
 	defer timeCtxCancelF()
 
-	go func() {
-		takeLoopExit <- takeLoop(timeCtx, logger, false, true)
-	}()
-	go func() {
-		pubLoopExit <- publishLoop(timeCtx, logger, false, true)
-	}()
+	for y := 0; y < takeLoopCount; y++ {
+		go func(i int) {
+			takeLoopExit <- takeLoop(timeCtx, i, logger, false, true)
+		}(y)
+	}
+	for y := 0; y < pubLoopCount; y++ {
+		go func(i int) {
+			pubLoopExit <- publishLoop(timeCtx, i, logger, false, true)
+		}(y)
+	}
 
-	var (
-		errTakeLoop, errPubLoop error
-	)
+	errs := []error{}
+	waitForMaxErrs := pubLoopCount + takeLoopCount
 	select {
 	case <-stopCtx.Done():
-		errTakeLoop = <-takeLoopExit
-		errPubLoop = <-pubLoopExit
 		break
-	case errTakeLoop = <-takeLoopExit:
-		timeCtxCancelF()
+	case err := <-takeLoopExit:
+		if err != nil {
+			errs = append(errs, err)
+		}
+		waitForMaxErrs--
 		stopCtxF()
-		errPubLoop = <-pubLoopExit
 		break
-	case errPubLoop = <-pubLoopExit:
-		timeCtxCancelF()
+	case err := <-pubLoopExit:
+		if err != nil {
+			errs = append(errs, err)
+		}
+		waitForMaxErrs--
 		stopCtxF()
-		errTakeLoop = <-takeLoopExit
 		break
 	}
 
-	if errTakeLoop != nil {
-		logger.Printf("take-loop: error; err: %v", errTakeLoop)
-	}
-	if errPubLoop != nil {
-		logger.Printf("pub-loop: error; err: %v", errPubLoop)
+	for y := 0; y < waitForMaxErrs; y++ {
+		select {
+		case err := <-takeLoopExit:
+			if err != nil {
+				errs = append(errs, err)
+			}
+			break
+		case err := <-pubLoopExit:
+			if err != nil {
+				errs = append(errs, err)
+			}
+			break
+		}
 	}
 
-	if errPubLoop != nil || errTakeLoop != nil {
-		os.Exit(1)
+	exitCode := 0
+	for i := 0; i < len(errs); i++ {
+		logger.Printf("%v", errs[i])
+		exitCode = 1
 	}
+
+	os.Exit(exitCode)
 }
 
-func takeLoop(ctx context.Context, l *log.Logger, dummy bool, noLogInfoLevel bool) error {
-	sc, err := stan.Connect("cluster00", "client01", stan.NatsURL("nats://10.160.0.17:4222"))
+func takeLoop(ctx context.Context, id int, l *log.Logger, dummy bool, noLogInfoLevel bool) error {
+	clientID := fmt.Sprintf("take-client-%d", id)
+
+	sc, err := stan.Connect("cluster00", clientID, stan.NatsURL("nats://10.160.0.17:4222"))
 	if err != nil {
-		return err
+		return fmt.Errorf("take-loop %d: error; err: %v", id, err)
 	}
 	defer func() {
 		scCloseErr := sc.Close()
 		if scCloseErr != nil {
 			if err != nil {
-				err = fmt.Errorf("%v; %w", err, scCloseErr)
+				err = fmt.Errorf("take-loop %d: %v; %w", id, err, scCloseErr)
 			} else {
-				err = scCloseErr
+				err = fmt.Errorf("take-loop %d: error; err: %v", id, scCloseErr)
 			}
 		}
 	}()
@@ -122,15 +142,15 @@ func takeLoop(ctx context.Context, l *log.Logger, dummy bool, noLogInfoLevel boo
 			stan.AckWait(time.Second*10),
 			stan.DurableName("subject00--AA"))
 		if err != nil {
-			return err
+			return fmt.Errorf("take-loop %d: error; err: %v", id, err)
 		}
 		defer func() {
 			subCloseErr := sub.Close()
 			if subCloseErr != nil {
 				if err != nil {
-					err = fmt.Errorf("%v; %w", err, subCloseErr)
+					err = fmt.Errorf("take-loop %d: %v; %w", id, err, subCloseErr)
 				} else {
-					err = subCloseErr
+					err = fmt.Errorf("take-loop %d: error; err: %v", id, subCloseErr)
 				}
 			}
 		}()
@@ -142,7 +162,7 @@ func takeLoop(ctx context.Context, l *log.Logger, dummy bool, noLogInfoLevel boo
 	for {
 		select {
 		case <-ctxDone:
-			l.Printf("take-loop: interrupted by context signal; acked: %d; duration: %s", ackedCount, time.Now().Sub(startDT))
+			l.Printf("take-loop %d: interrupted by context signal; acked: %d; duration: %s", id, ackedCount, time.Now().Sub(startDT))
 			return err
 		case msg := <-subInboxChan:
 			if !noLogInfoLevel {
@@ -159,7 +179,7 @@ func takeLoop(ctx context.Context, l *log.Logger, dummy bool, noLogInfoLevel boo
 				break
 			}
 		case subErrObj := <-subErrChan:
-			err = fmt.Errorf("take-loop: subscription error received; err: %v", subErrObj)
+			err = fmt.Errorf("take-loop %d: subscription error received; err: %v", id, subErrObj)
 			return err
 		case <-tmr.C:
 			if !noLogInfoLevel {
@@ -170,18 +190,20 @@ func takeLoop(ctx context.Context, l *log.Logger, dummy bool, noLogInfoLevel boo
 	}
 }
 
-func publishLoop(ctx context.Context, l *log.Logger, dummy bool, noLogInfoLevel bool) (err error) {
-	sc, err := stan.Connect("cluster00", "client00", stan.NatsURL("nats://10.160.0.17:4222"))
+func publishLoop(ctx context.Context, id int, l *log.Logger, dummy bool, noLogInfoLevel bool) (err error) {
+	clientID := fmt.Sprintf("pub-client-%d", id)
+
+	sc, err := stan.Connect("cluster00", clientID, stan.NatsURL("nats://10.160.0.17:4222"))
 	if err != nil {
-		return err
+		return fmt.Errorf("pub-loop %d: error; err: %v", id, err)
 	}
 	defer func() {
 		scCloseErr := sc.Close()
 		if scCloseErr != nil {
 			if err != nil {
-				err = fmt.Errorf("%v; %w", err, scCloseErr)
+				err = fmt.Errorf("pub-loop %d: %v; %w", id, err, scCloseErr)
 			} else {
-				err = scCloseErr
+				err = fmt.Errorf("pub-loop %d: error; err: %v", id, scCloseErr)
 			}
 		}
 	}()
@@ -197,21 +219,21 @@ func publishLoop(ctx context.Context, l *log.Logger, dummy bool, noLogInfoLevel 
 	for {
 		select {
 		case <-ctxDone:
-			l.Printf("pub-loop: interrupted by context signal; published: %d; duration: %s", pubCount, time.Now().Sub(startDT))
-			return nil
+			l.Printf("pub-loop %d: interrupted by context signal; published: %d; duration: %s", id, pubCount, time.Now().Sub(startDT))
+			return err
 		default:
 			if !dummy {
 				pubDataBin := []byte(fmt.Sprintf("%s", time.Now()))
 				err = sc.Publish("subject00", pubDataBin)
 				if err != nil {
-					return err
+					return fmt.Errorf("pub-loop %d: error; err: %v", id, err)
 				}
 				pubCount++
 				if !noLogInfoLevel {
 					l.Printf("pub-loop: published data; data: %s", string(pubDataBin))
 				}
 			}
-			tmr.Reset(interval)
+			//tmr.Reset(interval)
 		}
 	}
 }
